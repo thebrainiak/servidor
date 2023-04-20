@@ -1,28 +1,59 @@
- ```
- server {
-     listen 80;
-     server_name waf.age2.es;
+load_module modules/ngx_http_geoip_module.so;
 
-     location / {
-         proxy_pass http://192.168.232.131:8080;
-         proxy_set_header Host $host;
-         proxy_set_header X-Real-IP $remote_addr;
-         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-     }
- }
+http {
+    geoip_country /etc/nginx/geoip/GeoIP.dat;
+    geoip_city /etc/nginx/geoip/GeoLiteCity.dat;
 
- server {
-     listen 443 ssl;
-     server_name waf.age2.es;
+    map $geoip_city_country_code $is_tor {
+        default no;
+        A1 yes;
+    }
 
-     ssl_certificate /etc/letsencrypt/live/waf.age2.es/fullchain.pem;
-     ssl_certificate_key /etc/letsencrypt/live/waf.age2.es/privkey.pem;
+    map $remote_addr $is_tor_exit {
+        default no;
+        include /etc/nginx/torlist;
+    }
+}
 
-     location / {
-         proxy_pass http://192.168.232.131:8080;
-         proxy_set_header Host $host;
-         proxy_set_header X-Real-IP $remote_addr;
-         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-     }
- }
- ```
+server {
+    listen 80;
+    server_name waf.age2.es;
+    
+    if ($is_tor = yes) {
+        return 403;
+    }
+    
+        if ($is_tor_exit = yes) {
+        return 403;
+    }
+    
+    location / {
+        proxy_pass http://192.168.232.131:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name waf.age2.es;
+    
+    ssl_certificate /path/to/your/certificate.crt;
+    ssl_certificate_key /path/to/your/private.key;
+    
+    if ($is_tor = yes) {
+        return 403;
+    }
+    
+    if ($is_tor_exit = yes) {
+        return 403;
+    }
+    
+    location / {
+        proxy_pass http://192.168.232.131:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
