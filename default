@@ -1,4 +1,4 @@
-load_module modules/ngx_http_geoip_module.so;
+load_module /usr/lib/nginx/modules/ngx_http_geoip_module.so;
 
 http {
     geoip_country /etc/nginx/geoip/GeoIP.dat;
